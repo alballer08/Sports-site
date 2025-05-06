@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Teachable Machine Image Model</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 40px;
+            background-color: #f0f0f0;
+        }
+
+        #webcam-container {
+            margin: 20px auto;
+        }
+
+        #label-container div {
+            margin-top: 5px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Teachable Machine Image Model</h1>
+    <button type="button" id="startButton" onclick="startModel()">Start</button>
+    <button type="button" id="stopButton" onclick="stopModel()" disabled>Stop</button>
+    <div id="webcam-container"></div>
+    <div id="label-container"></div>
+
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <!-- Teachable Machine Image Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        const URL = "./my_model/";
+
+        let model, webcam, labelContainer, maxPredictions;
+        let isRunning = false;
+        let animationFrameId = null;
+
+        // Load the model once when the page loads
+        async function init() {
+            try {
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                
+                // Set up the label container
+                labelContainer = document.getElementById("label-container");
+                
+                console.log("Model loaded successfully");
+            } catch (error) {
+                console.error("Error loading model:", error);
+            }
+        }
+
+        // Initialize the model when the page loads
+        init();
+
+        // Start the webcam and prediction
+        async function startModel() {
+            if (isRunning) return;
+            
+            try {
+                // Update button states
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+                
+                // Clear the webcam container
+                const webcamContainer = document.getElementById("webcam-container");
+                webcamContainer.innerHTML = '';
+                
+                // Initialize webcam
+                const flip = true;
+                webcam = new tmImage.Webcam(200, 200, flip);
+                await webcam.setup();
+                await webcam.play();
+                webcamContainer.appendChild(webcam.canvas);
+                
+                // Clear and prepare label container
+                labelContainer.innerHTML = '';
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+                
+                isRunning = true;
+                
+                // Start prediction loop
+                loop();
+                
+                console.log("Webcam started");
+            } catch (error) {
+                console.error("Error starting webcam:", error);
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+            }
+        }
+
+        async function loop() {
+            if (!isRunning) return;
+            
+            webcam.update();
+            await predict();
+            animationFrameId = window.requestAnimationFrame(loop);
+        }
+
+        // Run predictions
+        async function predict() {
+            if (!model || !webcam) return;
+            
+            try {
+                const prediction = await model.predict(webcam.canvas);
+                for (let i = 0; i < maxPredictions; i++) {
+                    const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                    labelContainer.childNodes[i].innerHTML = classPrediction;
+                }
+            } catch (error) {
+                console.error("Prediction error:", error);
+            }
+        }
+
+        // Stop webcam and prediction
+        function stopModel() {
+            // Update button states
+            document.getElementById('stopButton').disabled = true;
+            document.getElementById('startButton').disabled = false;
+            
+            // Cancel animation frame
+            if (animationFrameId) {
+                window.cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            // Clean up webcam
+            if (webcam) {
+                webcam.stop();
+                webcam = null;
+            }
+            
+            // Clear predictions
+            if (labelContainer) {
+                labelContainer.innerHTML = "";
+            }
+            
+            isRunning = false;
+            console.log("Webcam stopped");
+        }
+    </script>
+
+</body>
+</html>
