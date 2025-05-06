@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision Classifier</title>
+
+    <!-- TensorFlow.js and Teachable Machine Image Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-hover: #3a56d4;
+            --secondary: #3f37c9;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+            --info: #4361ee;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        p.subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        .input-section, .results-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .card-header i {
+            font-size: 1.5rem;
+            margin-right: 10px;
+            color: var(--primary);
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+            min-width: 140px;
+        }
+        
+        .btn i {
+            margin-right: 8px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+        
+        .btn-secondary {
+            background-color: #e9ecef;
+            color: var(--dark);
+        }
+        
+        .btn-secondary:hover {
+            background-color: #dde0e3;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            border: 2px dashed #adb5bd;
+            color: #495057;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-wrapper:hover .file-input-button {
+            background-color: #dde0e3;
+            border-color: var(--primary);
+        }
+        
+        #webcam-container, #uploaded-image-container {
+            width: 100%;
+            height: 250px;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+            border: 1px solid #dee2e6;
+        }
+        
+        #webcam-container canvas, #uploaded-image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        #label-container {
+            margin-top: 15px;
+        }
+        
+        .prediction-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            transition: transform 0.2s ease;
+        }
+        
+        .prediction-item:hover {
+            transform: translateX(5px);
+        }
+        
+        .prediction-label {
+            font-weight: 500;
+        }
+        
+        .prediction-bar-container {
+            flex: 1;
+            height: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            margin: 0 15px;
+            overflow: hidden;
+        }
+        
+        .prediction-bar {
+            height: 100%;
+            background-color: var(--primary);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        
+        .prediction-percentage {
+            font-weight: 600;
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        .status-text {
+            text-align: center;
+            padding: 10px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        
+        .placeholder-text {
+            color: #adb5bd;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .flex-container {
+                flex-direction: column;
+            }
+            
+            .input-section, .results-section {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Vision Classifier</h1>
+            <p class="subtitle">Analyze images in real-time using machine learning</p>
+        </header>
+        
+        <div class="flex-container">
+            <div class="input-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-camera"></i>
+                        <h2 class="card-title">Capture or Upload</h2>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="startButton" class="btn btn-primary" onclick="startModel()">
+                            <i class="fas fa-video"></i> Start Camera
+                        </button>
+                        <button id="stopButton" class="btn btn-secondary" onclick="stopModel()" disabled>
+                            <i class="fas fa-stop"></i> Stop Camera
+                        </button>
+                    </div>
+                    
+                    <div class="file-input-wrapper">
+                        <div class="file-input-button">
+                            <i class="fas fa-upload" style="margin-right: 8px;"></i>
+                            <span>Upload an image</span>
+                        </div>
+                        <input type="file" accept="image/*" onchange="handleUpload(event)">
+                    </div>
+                    
+                    <div id="webcam-container">
+                        <p class="placeholder-text">Camera feed will appear here</p>
+                    </div>
+                    <div id="uploaded-image-container" style="display: none;">
+                        <p class="placeholder-text">Uploaded image will appear here</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-bar"></i>
+                        <h2 class="card-title">Classification Results</h2>
+                    </div>
+                    
+                    <div id="label-container">
+                        <p class="status-text">Start the camera or upload an image to see results</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Powered by TensorFlow.js and Teachable Machine</p>
+        </div>
+    </div>
+
+    <script>
+        const URL = "./my_model/";
+        let model, webcam, maxPredictions;
+        let isRunning = false;
+        let animationFrameId = null;
+
+        async function loadModelIfNeeded() {
+            if (!model) {
+                updateStatus("Loading model...");
+                try {
+                    const modelURL = URL + "model.json";
+                    const metadataURL = URL + "metadata.json";
+                    model = await tmImage.load(modelURL, metadataURL);
+                    maxPredictions = model.getTotalClasses();
+                    updateStatus("Model loaded successfully");
+                } catch (error) {
+                    updateStatus("Error loading model: " + error.message);
+                    console.error("Error loading model:", error);
+                }
+            }
+        }
+
+        function updateStatus(message) {
+            const labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = `<p class="status-text">${message}</p>`;
+        }
+
+        async function startModel() {
+            if (isRunning) return;
+            
+            try {
+                await loadModelIfNeeded();
+                
+                document.getElementById("startButton").disabled = true;
+                document.getElementById("stopButton").disabled = false;
+                document.getElementById("uploaded-image-container").style.display = "none";
+                document.getElementById("webcam-container").style.display = "flex";
+                
+                updateStatus("Starting camera...");
+                
+                const flip = true;
+                webcam = new tmImage.Webcam(400, 300, flip);
+                await webcam.setup();
+                await webcam.play();
+                
+                document.getElementById("webcam-container").innerHTML = '';
+                document.getElementById("webcam-container").appendChild(webcam.canvas);
+                
+                isRunning = true;
+                updateStatus("Analyzing...");
+                loop();
+            } catch (error) {
+                updateStatus("Camera error: " + error.message);
+                document.getElementById("startButton").disabled = false;
+                document.getElementById("stopButton").disabled = true;
+                console.error("Error starting webcam:", error);
+            }
+        }
+
+        async function loop() {
+            if (!isRunning) return;
+            
+            webcam.update();
+            await predict(webcam.canvas);
+            animationFrameId = window.requestAnimationFrame(loop);
+        }
+
+        async function handleUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            stopModel(); // stop webcam if running
+            updateStatus("Loading image...");
+            
+            try {
+                await loadModelIfNeeded();
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = async () => {
+                        document.getElementById("uploaded-image-container").innerHTML = "";
+                        document.getElementById("uploaded-image-container").appendChild(img);
+                        document.getElementById("uploaded-image-container").style.display = "flex";
+                        document.getElementById("webcam-container").style.display = "none";
+                        updateStatus("Analyzing image...");
+                        await predict(img);
+                    };
+                };
+                reader.readAsDataURL(file);
+            } catch (error) {
+                updateStatus("Error processing image: " + error.message);
+                console.error("Error handling upload:", error);
+            }
+        }
+
+        async function predict(inputElement) {
+            try {
+                const prediction = await model.predict(inputElement);
+                const labelContainer = document.getElementById("label-container");
+                labelContainer.innerHTML = '';
+                
+                // Sort predictions by probability (highest first)
+                prediction.sort((a, b) => b.probability - a.probability);
+                
+                for (let i = 0; i < maxPredictions; i++) {
+                    const p = prediction[i];
+                    const percent = (p.probability * 100).toFixed(1);
+                    
+                    const item = document.createElement("div");
+                    item.className = "prediction-item";
+                    
+                    const label = document.createElement("span");
+                    label.className = "prediction-label";
+                    label.textContent = p.className;
+                    
+                    const barContainer = document.createElement("div");
+                    barContainer.className = "prediction-bar-container";
+                    
+                    const bar = document.createElement("div");
+                    bar.className = "prediction-bar";
+                    bar.style.width = `${percent}%`;
+                    
+                    const percentage = document.createElement("span");
+                    percentage.className = "prediction-percentage";
+                    percentage.textContent = `${percent}%`;
+                    
+                    barContainer.appendChild(bar);
+                    item.appendChild(label);
+                    item.appendChild(barContainer);
+                    item.appendChild(percentage);
+                    
+                    labelContainer.appendChild(item);
+                }
+            } catch (error) {
+                updateStatus("Error analyzing: " + error.message);
+                console.error("Error predicting:", error);
+            }
+        }
+
+        function stopModel() {
+            document.getElementById("stopButton").disabled = true;
+            document.getElementById("startButton").disabled = false;
+            
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            if (webcam) {
+                webcam.stop();
+                webcam = null;
+            }
+            
+            isRunning = false;
+            document.getElementById("webcam-container").innerHTML = '<p class="placeholder-text">Camera feed will appear here</p>';
+            updateStatus("Start the camera or upload an image to see results");
+        }
+    </script>
+</body>
+</html>
